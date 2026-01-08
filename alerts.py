@@ -34,3 +34,24 @@ Signals:
         "text": text,
         "parse_mode": "Markdown"
     })
+
+def format_alert(trade, signals=None):
+    """
+    Safe formatter for dry-run / testing without Telegram.
+    """
+    usd = trade.get("usd") or trade.get("size", 0) * trade.get("price", 0)
+
+    lines = [
+        "🚨 POSSIBLE INFORMED TRADING",
+        f"Market: {trade.get('title') or trade.get('market_question')}",
+        f"Price: {trade.get('price')}",
+        f"Size (USD): ${usd:,.2f}",
+        f"Wallet: {trade.get('proxyWallet') or trade.get('wallet')}",
+    ]
+
+    if signals:
+        lines.append("Signals:")
+        for s in signals:
+            lines.append(f"- {s}")
+
+    return "\n".join(lines)

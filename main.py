@@ -1,3 +1,5 @@
+import netfix
+from fetch import fetch_trades
 import time
 from db import init_db, cur, conn
 from fetch import fetch_trades

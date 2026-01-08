@@ -1,5 +1,4 @@
-SUBGRAPH_URL = "https://api.thegraph.com/subgraphs/name/polymarket/polymarket"
-
+DATA_API_BASE = "https://data-api.polymarket.com"
 TELEGRAM_BOT_TOKEN = "YOUR_TOKEN"
 TELEGRAM_CHAT_ID = "YOUR_CHAT_ID"
 
