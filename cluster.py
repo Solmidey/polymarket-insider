@@ -1,16 +1,38 @@
 import time
-from config import CLUSTER_WINDOW_MIN
+from db import get_conn
+from config import (
+    CLUSTER_TIME_WINDOW_MIN,
+    CLUSTER_MIN_WALLETS,
+    CLUSTER_MIN_TOTAL_USD
+)
 
-def detect_cluster(trades, current_trade):
-    cutoff = current_trade["timestamp"] - (CLUSTER_WINDOW_MIN * 60)
+def detect_cluster(market: str):
+    """
+    Returns True if clustered wallet activity is detected for a market.
+    """
+    since_ts = int(time.time()) - (CLUSTER_TIME_WINDOW_MIN * 60)
 
-    same_market = [
-        t for t in trades
-        if t["market"] == current_trade["market"]
-        and t["timestamp"] >= cutoff
-        and t["wallet"] != current_trade["wallet"]
-        and t.get("outcome") == current_trade.get("outcome")
-        and t["usd"] >= current_trade["usd"] * 0.8
-    ]
+    conn = get_conn()
+    cur = conn.cursor()
 
-    return len(same_market) >= 1
+    cur.execute("""
+        SELECT wallet, SUM(usd)
+        FROM trades
+        WHERE market = ?
+          AND timestamp >= ?
+        GROUP BY wallet
+    """, (market, since_ts))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    unique_wallets = len(rows)
+    total_usd = sum(r[1] for r in rows)
+
+    if unique_wallets >= CLUSTER_MIN_WALLETS and total_usd >= CLUSTER_MIN_TOTAL_USD:
+        return True, {
+            "wallets": unique_wallets,
+            "total_usd": total_usd
+        }
+
+    return False, None

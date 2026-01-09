@@ -2,7 +2,7 @@ import sqlite3
 import time
 
 DB_PATH = "polymarket.db"
-
+DEDUP_WINDOW_SECONDS = 60 * 60 # 1 hour
 
 # ======================
 # CONNECTION
@@ -203,3 +203,79 @@ def get_wallet_stats(wallet: str):
         "total_volume": row[2],
     }
 
+def alert_recently_fired(wallet: str, market: str) -> bool:
+    """
+    Returns True if an alert was already fired for this wallet+market recently
+    """
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT fired_timestamp
+        FROM alerts
+        WHERE wallet = ?
+          AND market = ?
+        ORDER BY fired_timestamp DESC
+        LIMIT 1
+    """, (wallet, market))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return False
+
+    last_fired = int(row[0])
+    return (time.time() - last_fired) < DEDUP_WINDOW_SECONDS
+
+
+def record_alert(wallet: str, market: str, price: float, signals: list, confidence: int):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO alerts (
+            market,
+            wallet,
+            fired_timestamp,
+            fired_price,
+            signals,
+            confidence,
+            status
+        ) VALUES (?, ?, ?, ?, ?, ?, 'pending')
+    """, (
+        market,
+        wallet,
+        int(time.time()),
+        price,
+        ",".join(signals),
+        confidence
+    ))
+
+    conn.commit()
+    conn.close()
+
+def record_trade(trade_id, wallet, market, usd, price, timestamp):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT OR IGNORE INTO trades (
+            id,
+            wallet,
+            market,
+            usd,
+            price,
+            timestamp
+        ) VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        trade_id,
+        wallet,
+        market,
+        usd,
+        price,
+        timestamp
+    ))
+
+    conn.commit()
+    conn.close()
